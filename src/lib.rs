@@ -44,10 +44,10 @@ where
     E: Iterator<Item = char>,
 {
     let mut result = term::<N, _>(yet);
-
     while let Some('+' | '-') = yet.peek() {
-        result = operate(result?, yet.next().expect("peeked"), expression(yet)?);
+        result = operate(result?, yet.next().expect("peeked"), term(yet)?);
     }
+
     match yet.peek() {
         None | Some(')' | '}' | ']') => Ok(result?),
         c => anyhow::bail!("expect end of expression, but found {:?}", c),
@@ -60,8 +60,15 @@ where
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
-    let result = factor::<N, _>(yet);
-    Ok(result?)
+    let mut result = factor::<N, _>(yet);
+    while let Some('*' | '/') = yet.peek() {
+        result = operate(result?, yet.next().expect("peeked"), factor(yet)?);
+    }
+
+    match yet.peek() {
+        None | Some('+' | '-') | Some(')' | '}' | ']') => Ok(result?),
+        c => anyhow::bail!("expect end of term, but found {:?}", c),
+    }
 }
 
 fn factor<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
@@ -95,6 +102,8 @@ where
     match op {
         '+' => Ok(a + b),
         '-' => Ok(a - b),
+        '*' => Ok(a * b),
+        '/' => Ok(a / b),
         _ => anyhow::bail!("unimplemented operator: {}", op),
     }
 }
@@ -123,6 +132,21 @@ mod tests {
         assert!(matches!(calculate::<i64>(" 1 +  2+3+4 +5+6+7+8+9+10  "), Ok(55)));
         assert!(matches!(calculate::<i64>("1+( 2+3)"), Ok(6)));
         assert!(matches!(calculate::<i64>("  1 + (2\t + 3\n\n  )"), Ok(6)));
-        assert!(matches!(calculate::<i64>("+2"), Err(_))); // TODO should be Ok?
+    }
+
+    #[test]
+    fn test_mul() {
+        assert!(matches!(calculate::<i64>("1*2*3*4*5*6*7*8*9*10"), Ok(3628800)));
+        assert!(matches!(calculate::<i64>("1*2*3*4*5*"), Err(_)));
+        assert!(matches!(calculate::<i64>("*2"), Err(_)));
+    }
+
+    #[test]
+    fn test_integer_expression() {
+        assert!(matches!(calculate::<i64>("(1+2*3)*4+5*6"), Ok(58)));
+        assert!(matches!(calculate::<i64>("1+(2+3*4+5)*6"), Ok(115)));
+        assert!(matches!(calculate::<i64>("1 - 2 + 3*4/5*6"), Ok(11)));
+        assert!(matches!(calculate::<i64>("(2023 + 2024 + 2025) / 2024"), Ok(3)));
+        assert!(matches!(calculate::<i64>("6*5*4/(3*2*1)"), Ok(20)));
     }
 }
