@@ -10,40 +10,37 @@ where
     N: Clone + FromStr + Add + Sub + Mul + Div,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
 {
-    Ok(expression::<N, _, Chars>(target.chars(), None).unwrap().1) // TODO
+    Ok(expression::<N, _>(target.chars(), None).unwrap()) // TODO
 }
 
-fn expression<N, E, Y>(yet: E, paren: Option<char>) -> anyhow::Result<(Y, N)>
+fn expression<N, E>(yet: E, paren: Option<char>) -> anyhow::Result<N>
 where
     N: Clone + FromStr + Add + Sub + Mul + Div,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: IntoIterator<Item = char>,
-    Y: IntoIterator<Item = char>,
 {
     let mut yer = yet.into_iter();
-    let t = term::<N, _, _>(yer);
-    // yer.next();
-    // todo!()
+    let t = term::<N, _>(yer);
+    yer.next();
+    todo!();
     t
 }
 
-fn term<N, E, Y>(yet: E) -> anyhow::Result<(Y, N)>
+fn term<N, E>(yet: E) -> anyhow::Result<N>
 where
     N: Clone + FromStr + Add + Sub + Mul + Div,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: IntoIterator<Item = char>,
-    Y: IntoIterator<Item = char>,
 {
-    let f = factor::<N, _, _>(yet);
+    let f = factor::<N, _>(yet);
     f
 }
 
-fn factor<N, E, Y>(yet: E) -> anyhow::Result<(Y, N)>
+fn factor<N, E>(yet: E) -> anyhow::Result<N>
 where
     N: Clone + FromStr + Add + Sub + Mul + Div,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: IntoIterator<Item = char>,
-    Y: IntoIterator<Item = char>,
 {
     let mut yer = yet.into_iter();
     match yer.next().ok_or_else(|| anyhow::anyhow!("expect factor, but found EOF"))? {
@@ -53,14 +50,13 @@ where
     }
 }
 
-fn constant<N, E, Y>(yet: E, n: char) -> anyhow::Result<(Y, N)>
+fn constant<N, E>(yet: E, n: char) -> anyhow::Result<N>
 where
     N: Clone + FromStr + Add + Sub + Mul + Div,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: IntoIterator<Item = char>,
-    Y: IntoIterator<Item = char>,
 {
     let (mut yer, mut buff) = (yet.into_iter(), "");
     let integer: String = yer.take_while(|d| d.is_numeric()).collect();
-    Ok((yer, N::from_str(&format!("{}{}", n, integer))?))
+    Ok(N::from_str(&format!("{}{}", n, integer))?)
 }
