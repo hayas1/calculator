@@ -33,7 +33,7 @@ where
     match yet.next() {
         // FIXME: error message
         q @ (None | Some(')' | '}' | ']')) if q == close => Ok(result),
-        c => anyhow::bail!("expect end of expression, but found {:?}", c),
+        c => anyhow::bail!("expect end of parenthetic expression, but found {:?}", c),
     }
 }
 
@@ -79,7 +79,7 @@ where
 {
     match yet.peek().ok_or_else(|| anyhow::anyhow!("expect factor, but found EOF"))? {
         &p @ ('(' | '{' | '[') => parenthetic(yet, Some(p)),
-        n if n.is_numeric() => constant(yet),
+        n if n == &'.' || n.is_numeric() => constant(yet),
         c => Err(anyhow::anyhow!("expect factor, but found {}", c)),
     }
 }
@@ -90,9 +90,11 @@ where
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
-    let integer: String = yet.peeking_take_while(|&d| d.is_numeric()).collect();
-    // TODO fraction
-    Ok(N::from_str(&integer)?)
+    let mut result: String = yet.peeking_take_while(|d| d.is_numeric()).collect();
+    if let Some('.') = yet.peek() {
+        result.push_str(&yet.peeking_take_while(|d| d == &'.' || d.is_numeric()).collect::<String>())
+    }
+    Ok(N::from_str(&result)?)
 }
 
 fn operate<N>(a: N, op: char, b: N) -> anyhow::Result<N>
@@ -148,5 +150,15 @@ mod tests {
         assert!(matches!(calculate::<i64>("1 - 2 + 3*4/5*6"), Ok(11)));
         assert!(matches!(calculate::<i64>("(2023 + 2024 + 2025) / 2024"), Ok(3)));
         assert!(matches!(calculate::<i64>("6*5*4/(3*2*1)"), Ok(20)));
+    }
+
+    #[test]
+    fn test_fraction_expression() {
+        assert_eq!(calculate::<f64>("1.23 * 4 ").unwrap(), 4.92);
+        assert_eq!(calculate::<f64>("1.23 * (3 + 10.2) - 0.006 ").unwrap(), 16.23);
+        assert_eq!(calculate::<f64>("1 - 2 + 3*4/5*6").unwrap(), 13.399999999999999); // TODO 13.4
+        assert_eq!(calculate::<f64>("(20.23 + 20.24 + 20.25) / 20.24").unwrap(), 3.);
+        assert_eq!(calculate::<f64>("1.").unwrap(), 1.0);
+        assert_eq!(calculate::<f64>(".1").unwrap(), 0.1);
     }
 }
