@@ -9,16 +9,15 @@ where
     N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
 {
-    parenthetic::<N, _>(&mut target.chars().peekable(), None)
+    parenthetic::<N, _>(&mut target.chars().filter(|c| !c.is_whitespace()).peekable(), None)
 }
 
 fn parenthetic<N, E>(yet: &mut std::iter::Peekable<E>, p: Option<char>) -> anyhow::Result<N>
 where
     N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
-    E: Iterator<Item = char> + itertools::PeekingNext,
+    E: Iterator<Item = char>,
 {
-    let _skip_whitespace = yet.peeking_take_while(|c| c.is_whitespace()).count();
     match (yet.peek(), p) {
         // FIXME better match (peek and next is difficult)
         (Some(&paren), Some(pp)) if paren != pp => anyhow::bail!("expect {}, but found {}", pp, paren),
@@ -30,7 +29,6 @@ where
     let closing_paren = |p| (p as u8 + 1) as char;
     let qq = p.map(closing_paren);
 
-    let _skip_whitespace = yet.peeking_take_while(|c| c.is_whitespace()).count();
     let result = expression(yet);
 
     match yet.next() {
@@ -43,12 +41,10 @@ fn expression<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
     N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
-    E: Iterator<Item = char> + itertools::PeekingNext,
+    E: Iterator<Item = char>,
 {
-    let _skip_whitespace = yet.peeking_take_while(|c| c.is_whitespace()).count();
     let mut result = term::<N, _>(yet);
 
-    let _skip_whitespace = yet.peeking_take_while(|c| c.is_whitespace()).count();
     while let Some('+' | '-') = yet.peek() {
         result = operate(result, yet.next().expect("peeked"), expression(yet));
     }
@@ -62,11 +58,9 @@ fn term<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
     N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
-    E: Iterator<Item = char> + itertools::PeekingNext,
+    E: Iterator<Item = char>,
 {
-    let _skip_whitespace = yet.peeking_take_while(|c| c.is_whitespace()).count();
     let f = factor::<N, _>(yet);
-    let _skip_whitespace = yet.peeking_take_while(|c| c.is_whitespace()).count();
     f
 }
 
@@ -74,9 +68,8 @@ fn factor<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
     N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
-    E: Iterator<Item = char> + itertools::PeekingNext,
+    E: Iterator<Item = char>,
 {
-    let _skip_whitespace = yet.peeking_take_while(|c| c.is_whitespace()).count();
     match yet.peek().ok_or_else(|| anyhow::anyhow!("expect factor, but found EOF"))? {
         &p @ ('(' | '{' | '[') => parenthetic(yet, Some(p)),
         n if n.is_numeric() => constant(yet),
@@ -88,9 +81,8 @@ fn constant<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
     N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
-    E: Iterator<Item = char> + itertools::PeekingNext,
+    E: Iterator<Item = char>,
 {
-    let _skip_whitespace = yet.peeking_take_while(|c| c.is_whitespace()).count();
     let integer: String = yet.peeking_take_while(|&d| d.is_numeric()).collect();
     // TODO fraction
     Ok(N::from_str(&integer)?)
