@@ -1,12 +1,9 @@
 use itertools::Itertools;
-use std::{
-    ops::{Add, Div, Mul, Neg, Sub},
-    str::FromStr,
-};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 pub fn calculate<N>(target: &str) -> anyhow::Result<N>
 where
-    N: FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
+    N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
 {
     parenthetic::<N, _>(&mut target.chars().filter(|c| !c.is_whitespace()).peekable(), None)
@@ -14,7 +11,7 @@ where
 
 fn parenthetic<N, E>(yet: &mut std::iter::Peekable<E>, open: Option<char>) -> anyhow::Result<N>
 where
-    N: FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
+    N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
@@ -36,7 +33,7 @@ where
 
 fn expression<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
-    N: FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
+    N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
@@ -59,7 +56,7 @@ where
 
 fn term<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
-    N: FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
+    N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
@@ -76,7 +73,7 @@ where
 
 fn factor<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
-    N: FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
+    N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
@@ -89,7 +86,7 @@ where
 
 fn constant<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
-    N: FromStr,
+    N: std::str::FromStr,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
@@ -188,5 +185,16 @@ mod tests {
         assert!(calculate::<f64>("-1.23 * -4 ").is_err());
         assert!(calculate::<f64>("-1.23 * -----4 ").is_err());
         assert_eq!(calculate::<f64>("-1.23 * (-4) ").unwrap(), 4.92);
+    }
+
+    #[test]
+    fn test_rational() {
+        assert_eq!(calculate::<num::Rational64>("-123 + (-45  / 9)").unwrap(), num::Rational64::from_integer(-128));
+        assert_eq!(calculate::<num::Rational64>("1/99*3*3*11+100").unwrap(), num::Rational64::from_integer(101));
+        assert_eq!(calculate::<num::Rational64>("2/3*5/4").unwrap(), num::Rational64::new_raw(5, 6));
+        assert_eq!(
+            calculate::<num::Rational64>("2/3 + 1/6").unwrap(),
+            <num::Rational64 as std::str::FromStr>::from_str("5/6").unwrap()
+        );
     }
 }
