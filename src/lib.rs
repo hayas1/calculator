@@ -29,10 +29,10 @@ where
     let closing_paren = |p| (p as u8 + 1) as char;
     let qq = p.map(closing_paren);
 
-    let result = expression(yet);
+    let result = expression(yet)?;
 
     match yet.next() {
-        q @ (None | Some(')' | '}' | ']')) if q == qq => result,
+        q @ (None | Some(')' | '}' | ']')) if q == qq => Ok(result),
         c => anyhow::bail!("expect end of expression, but found {:?}", c),
     }
 }
@@ -46,10 +46,10 @@ where
     let mut result = term::<N, _>(yet);
 
     while let Some('+' | '-') = yet.peek() {
-        result = operate(result, yet.next().expect("peeked"), expression(yet));
+        result = operate(result?, yet.next().expect("peeked"), expression(yet)?);
     }
     match yet.peek() {
-        None | Some(')' | '}' | ']') => result,
+        None | Some(')' | '}' | ']') => Ok(result?),
         c => anyhow::bail!("expect end of expression, but found {:?}", c),
     }
 }
@@ -60,8 +60,8 @@ where
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
-    let f = factor::<N, _>(yet);
-    f
+    let result = factor::<N, _>(yet);
+    Ok(result?)
 }
 
 fn factor<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
@@ -88,13 +88,13 @@ where
     Ok(N::from_str(&integer)?)
 }
 
-fn operate<N>(a: anyhow::Result<N>, op: char, b: anyhow::Result<N>) -> anyhow::Result<N>
+fn operate<N>(a: N, op: char, b: N) -> anyhow::Result<N>
 where
     N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N>,
 {
     match op {
-        '+' => Ok(a? + b?),
-        '-' => Ok(a? - b?),
+        '+' => Ok(a + b),
+        '-' => Ok(a - b),
         _ => anyhow::bail!("unimplemented operator: {}", op),
     }
 }
