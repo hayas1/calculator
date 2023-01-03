@@ -114,6 +114,8 @@ mod tests {
     fn test_paren() {
         assert!(matches!(calculate::<i64>("(1+2)+3"), Ok(6)));
         assert!(matches!(calculate::<i64>("(1+2))+3"), Err(_)));
+        assert!(matches!(calculate::<i64>("(1+2)+3))))"), Err(_)));
+        assert!(matches!(calculate::<i64>("((((1+2))))+(3)"), Ok(6)));
     }
 
     #[test]
