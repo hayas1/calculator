@@ -1,12 +1,12 @@
 use itertools::Itertools;
 use std::{
-    ops::{Add, Div, Mul, Sub},
+    ops::{Add, Div, Mul, Neg, Sub},
     str::FromStr,
 };
 
 pub fn calculate<N>(target: &str) -> anyhow::Result<N>
 where
-    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N>,
+    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
 {
     parenthetic::<N, _>(&mut target.chars().filter(|c| !c.is_whitespace()).peekable(), None)
@@ -14,7 +14,7 @@ where
 
 fn parenthetic<N, E>(yet: &mut std::iter::Peekable<E>, open: Option<char>) -> anyhow::Result<N>
 where
-    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N>,
+    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
@@ -39,13 +39,19 @@ where
 
 fn expression<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
-    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N>,
+    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
-    let mut result = term::<N, _>(yet);
+    let mut result;
+    if let Some('+' | '-') = yet.peek() {
+        result = unop(yet.next().expect("peeked"), term(yet)?);
+    } else {
+        result = term(yet);
+    }
+
     while let Some('+' | '-') = yet.peek() {
-        result = operate(result?, yet.next().expect("peeked"), term(yet)?);
+        result = binop(result?, yet.next().expect("peeked"), term(yet)?);
     }
 
     match yet.peek() {
@@ -56,13 +62,13 @@ where
 
 fn term<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
-    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N>,
+    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
     let mut result = factor::<N, _>(yet);
     while let Some('*' | '/') = yet.peek() {
-        result = operate(result?, yet.next().expect("peeked"), factor(yet)?);
+        result = binop(result?, yet.next().expect("peeked"), factor(yet)?);
     }
 
     match yet.peek() {
@@ -73,7 +79,7 @@ where
 
 fn factor<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
-    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N>,
+    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
@@ -86,7 +92,7 @@ where
 
 fn constant<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
-    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N>,
+    N: Clone + FromStr,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
@@ -97,16 +103,27 @@ where
     Ok(N::from_str(&result)?)
 }
 
-fn operate<N>(a: N, op: char, b: N) -> anyhow::Result<N>
+fn binop<N>(a: N, op: char, b: N) -> anyhow::Result<N>
 where
-    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N>,
+    N: Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N>,
 {
     match op {
         '+' => Ok(a + b),
         '-' => Ok(a - b),
         '*' => Ok(a * b),
         '/' => Ok(a / b),
-        _ => anyhow::bail!("unimplemented operator: {}", op),
+        _ => anyhow::bail!("unimplemented binary operator: {}", op),
+    }
+}
+
+fn unop<N>(op: char, a: N) -> anyhow::Result<N>
+where
+    N: Neg<Output = N>,
+{
+    match op {
+        '+' => Ok(a),
+        '-' => Ok(-a),
+        _ => anyhow::bail!("unimplemented unary operator: {}", op),
     }
 }
 
@@ -118,7 +135,8 @@ mod tests {
     fn test_add() {
         assert!(matches!(calculate::<i64>("1+2+3+4+5+6+7+8+9+10"), Ok(55)));
         assert!(matches!(calculate::<i64>("1+2++3"), Err(_)));
-        assert!(matches!(calculate::<i64>("+2"), Err(_))); // TODO should be Ok?
+        assert!(matches!(calculate::<i64>("+2"), Ok(2)));
+        assert!(matches!(calculate::<i64>("-2"), Ok(-2)));
     }
 
     #[test]
@@ -160,5 +178,18 @@ mod tests {
         assert_eq!(calculate::<f64>("(20.23 + 20.24 + 20.25) / 20.24").unwrap(), 3.);
         assert_eq!(calculate::<f64>("1.").unwrap(), 1.0);
         assert_eq!(calculate::<f64>(".1").unwrap(), 0.1);
+    }
+
+    #[test]
+    fn test_expression() {
+        assert!(matches!(calculate::<i64>("-123 + (-45  / 9)"), Ok(-128)));
+        assert!(matches!(calculate::<i64>("-123 + (-45  / -9)"), Err(_)));
+        assert!(matches!(calculate::<i64>("-123 + -----9"), Err(_)));
+        assert!(matches!(calculate::<i64>("-123 + (-45  / (-9))"), Ok(-118)));
+
+        assert_eq!(calculate::<f64>("-1.23 * 4 ").unwrap(), -4.92);
+        assert!(calculate::<f64>("-1.23 * -4 ").is_err());
+        assert!(calculate::<f64>("-1.23 * -----4 ").is_err());
+        assert_eq!(calculate::<f64>("-1.23 * (-4) ").unwrap(), 4.92);
     }
 }
