@@ -18,20 +18,17 @@ where
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
-    match (yet.peek(), open) {
-        // FIXME better match (peek and next is difficult)
-        (Some(&paren), Some(pp)) if paren != pp => anyhow::bail!("expect {}, but found {}", pp, paren),
-        (None, Some(pp)) => anyhow::bail!("expect {}, but found EOF", pp),
-        (paren, pp) if paren == pp.as_ref() => yet.next(),
-        _ => None,
-    };
+    // TODO better error message
+    if open.is_some() {
+        let p = yet.next();
+        anyhow::ensure!(p == open, "expect {:?}, but found {:?}", open, p);
+    }
 
     let closing_paren = |p| (p as u8 + 1) as char;
     let close = open.map(closing_paren);
 
     let result = expression(yet)?;
     match yet.next() {
-        // FIXME: error message
         q @ (None | Some(')' | '}' | ']')) if q == close => Ok(result),
         c => anyhow::bail!("expect end of parenthetic expression, but found {:?}", c),
     }
