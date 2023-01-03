@@ -192,6 +192,7 @@ mod tests {
         assert_eq!(calculate::<num::Rational64>("-123 + (-45  / 9)").unwrap(), num::Rational64::from_integer(-128));
         assert_eq!(calculate::<num::Rational64>("1/99*3*3*11+100").unwrap(), num::Rational64::from_integer(101));
         assert_eq!(calculate::<num::Rational64>("2/3*5/4").unwrap(), num::Rational64::new_raw(5, 6));
+        assert_eq!(calculate::<num::Rational64>("(1/3+1/2-1)*12").unwrap(), num::Rational64::from_integer(-2));
         assert_eq!(
             calculate::<num::Rational64>("2/3 + 1/6").unwrap(),
             <num::Rational64 as std::str::FromStr>::from_str("5/6").unwrap()
