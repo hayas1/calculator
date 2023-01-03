@@ -15,7 +15,7 @@ $ cargo install --git https://github.com/hayas1/calculator
 
 ### Uninstall
 ```console
-$ cargo install calculator
+$ cargo uninstall calculator
 ```
 
 ## Example
