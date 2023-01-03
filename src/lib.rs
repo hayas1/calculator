@@ -6,7 +6,7 @@ use std::{
 
 pub fn calculate<N>(target: &str) -> anyhow::Result<N>
 where
-    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
+    N: FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
 {
     parenthetic::<N, _>(&mut target.chars().filter(|c| !c.is_whitespace()).peekable(), None)
@@ -14,7 +14,7 @@ where
 
 fn parenthetic<N, E>(yet: &mut std::iter::Peekable<E>, open: Option<char>) -> anyhow::Result<N>
 where
-    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
+    N: FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
@@ -36,7 +36,7 @@ where
 
 fn expression<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
-    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
+    N: FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
@@ -59,7 +59,7 @@ where
 
 fn term<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
-    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
+    N: FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
@@ -76,7 +76,7 @@ where
 
 fn factor<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
-    N: Clone + FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
+    N: FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
@@ -89,7 +89,7 @@ where
 
 fn constant<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
-    N: Clone + FromStr,
+    N: FromStr,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
