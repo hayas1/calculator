@@ -18,7 +18,6 @@ where
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
-    // TODO better error message
     if open.is_some() {
         let p = yet.next();
         anyhow::ensure!(p == open, "expect {:?}, but found {:?}", open, p);
@@ -48,11 +47,7 @@ where
     while let Some('+' | '-') = yet.peek() {
         result = binop(result?, yet.next().expect("peeked '+' or '-'"), term(yet)?);
     }
-
-    match yet.peek() {
-        None | Some(')' | '}' | ']') => result,
-        c => anyhow::bail!("expect end of expression, but found {:?}", c),
-    }
+    result
 }
 
 fn term<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
@@ -65,11 +60,7 @@ where
     while let Some('*' | '/') = yet.peek() {
         result = binop(result?, yet.next().expect("peeked '*' or '/'"), factor(yet)?);
     }
-
-    match yet.peek() {
-        None | Some('+' | '-') | Some(')' | '}' | ']') => result,
-        c => anyhow::bail!("expect end of term, but found {:?}", c),
-    }
+    result
 }
 
 fn factor<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
@@ -93,7 +84,8 @@ where
 {
     let mut result = yet.peeking_take_while(|d| d.is_numeric()).collect::<String>();
     if let Some('.') = yet.peek() {
-        result.push_str(&yet.peeking_take_while(|d| d == &'.' || d.is_numeric()).collect::<String>())
+        result.push(yet.next().expect("peeked '.'"));
+        result.push_str(&yet.peeking_take_while(|d| d.is_numeric()).collect::<String>())
     }
     Ok(N::from_str(&result)?)
 }
