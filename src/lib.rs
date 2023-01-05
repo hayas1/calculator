@@ -1,3 +1,4 @@
+use anyhow::Context as _;
 use itertools::Itertools;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
@@ -6,7 +7,9 @@ where
     N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
 {
-    parenthetic::<N, _>(&mut target.chars().filter(|c| !c.is_whitespace()).peekable(), None)
+    let mut reader = target.chars().filter(|c| !c.is_whitespace()).peekable();
+    parenthetic(&mut reader, None)
+        .with_context(|| anyhow::anyhow!("fail calculate {:?}, remaining {:?}", target, reader.collect::<String>()))
 }
 
 fn parenthetic<N, E>(yet: &mut std::iter::Peekable<E>, open: Option<char>) -> anyhow::Result<N>
@@ -21,12 +24,10 @@ where
         anyhow::ensure!(p == open, "expect {:?}, but found {:?}", open, p);
     }
 
-    let closing_paren = |p| (p as u8 + 1) as char;
-    let close = open.map(closing_paren);
-
-    let result = expression(yet)?;
+    let close = |p| (p as u8 + 1) as char;
+    let result = expression(yet);
     match yet.next() {
-        q @ (None | Some(')' | '}' | ']')) if q == close => Ok(result),
+        q @ (None | Some(')' | '}' | ']')) if q == open.map(close) => result,
         c => anyhow::bail!("expect end of parenthetic expression, but found {:?}", c),
     }
 }
@@ -45,11 +46,11 @@ where
     }
 
     while let Some('+' | '-') = yet.peek() {
-        result = binop(result?, yet.next().expect("peeked"), term(yet)?);
+        result = binop(result?, yet.next().expect("peeked '+' or '-'"), term(yet)?);
     }
 
     match yet.peek() {
-        None | Some(')' | '}' | ']') => Ok(result?),
+        None | Some(')' | '}' | ']') => result,
         c => anyhow::bail!("expect end of expression, but found {:?}", c),
     }
 }
@@ -60,13 +61,13 @@ where
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
-    let mut result = factor::<N, _>(yet);
+    let mut result = factor(yet);
     while let Some('*' | '/') = yet.peek() {
-        result = binop(result?, yet.next().expect("peeked"), factor(yet)?);
+        result = binop(result?, yet.next().expect("peeked '*' or '/'"), factor(yet)?);
     }
 
     match yet.peek() {
-        None | Some('+' | '-') | Some(')' | '}' | ']') => Ok(result?),
+        None | Some('+' | '-') | Some(')' | '}' | ']') => result,
         c => anyhow::bail!("expect end of term, but found {:?}", c),
     }
 }
@@ -77,10 +78,10 @@ where
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
-    match yet.peek().ok_or_else(|| anyhow::anyhow!("expect factor, but found EOF"))? {
-        &p @ ('(' | '{' | '[') => parenthetic(yet, Some(p)),
-        n if n == &'.' || n.is_numeric() => constant(yet),
-        c => Err(anyhow::anyhow!("expect factor, but found {}", c)),
+    match yet.peek() {
+        Some(&p @ ('(' | '{' | '[')) => parenthetic(yet, Some(p)),
+        Some(n) if n == &'.' || n.is_numeric() => constant(yet),
+        c => Err(anyhow::anyhow!("expect factor, but found {:?}", c)),
     }
 }
 
@@ -90,7 +91,7 @@ where
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
-    let mut result: String = yet.peeking_take_while(|d| d.is_numeric()).collect();
+    let mut result = yet.peeking_take_while(|d| d.is_numeric()).collect::<String>();
     if let Some('.') = yet.peek() {
         result.push_str(&yet.peeking_take_while(|d| d == &'.' || d.is_numeric()).collect::<String>())
     }
