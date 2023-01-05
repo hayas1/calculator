@@ -41,17 +41,9 @@ $ calculator 1+2
 ```
 
 ```console
-$ calculator 1+2+
-Error: expect factor, but found EOF
-```
-
-```console
 $ calculator 1/3+1/6 -p
 1/2
 ```
-
-
-
 
 # Library
 ## Usage
