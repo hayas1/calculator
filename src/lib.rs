@@ -12,6 +12,7 @@ where
         .with_context(|| anyhow::anyhow!("fail calculate {:?}, remaining {:?}", target, reader.collect::<String>()))
 }
 
+/// parenthetic =  expression ; | '(' expression ')'
 fn parenthetic<N, E>(yet: &mut std::iter::Peekable<E>, open: Option<char>) -> anyhow::Result<N>
 where
     N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
@@ -31,6 +32,7 @@ where
     }
 }
 
+/// expression = [ '+' | '-' ] term { ( '+' | '-' ) term }
 fn expression<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
     N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
@@ -50,6 +52,7 @@ where
     result
 }
 
+/// term = factor { ( '*' | '/' ) term }
 fn term<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
     N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
@@ -63,6 +66,7 @@ where
     result
 }
 
+/// factor = constant | '(' expression ')'
 fn factor<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
     N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
@@ -70,12 +74,14 @@ where
     E: Iterator<Item = char>,
 {
     match yet.peek() {
-        Some(&p @ ('(' | '{' | '[')) => parenthetic(yet, Some(p)),
         Some(n) if n == &'.' || n.is_numeric() => constant(yet),
+        Some(&p @ ('(' | '{' | '[')) => parenthetic(yet, Some(p)),
         c => Err(anyhow::anyhow!("expect factor, but found {:?}", c)),
     }
 }
 
+/// constant = digit | [digit] '.' digit
+/// digit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
 fn constant<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
     N: std::str::FromStr,
