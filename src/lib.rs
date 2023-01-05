@@ -39,7 +39,7 @@ where
 {
     let mut result;
     if let Some('+' | '-') = yet.peek() {
-        result = unop(yet.next().expect("peeked"), term(yet)?);
+        result = unop(yet.next().expect("peeked '+' or '-'"), term(yet)?);
     } else {
         result = term(yet);
     }
