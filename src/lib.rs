@@ -24,7 +24,7 @@ where
         anyhow::ensure!(p == open, "expect {:?}, but found {:?}", open, p);
     }
 
-    let close = |p| (p as u8 + 1) as char;
+    let close = |p| if p == '(' { p as u8 + 1 } else { p as u8 + 2 } as char;
     let result = expression(yet);
     match yet.next() {
         q @ (None | Some(')' | '}' | ']')) if q == open.map(close) => result,
