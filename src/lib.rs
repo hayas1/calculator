@@ -12,57 +12,62 @@ where
         .with_context(|| anyhow::anyhow!("fail calculate {:?}, remaining {:?}", target, reader.collect::<String>()))
 }
 
+/// parenthetic = [ '+' | '-' ] term [ ( '+' | '-' ) expression ] ;
+///             | '(' [ '+' | '-' ] term [ ( '+' | '-' ) expression ] ')'
 fn parenthetic<N, E>(yet: &mut std::iter::Peekable<E>, open: Option<char>) -> anyhow::Result<N>
 where
     N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
-    if open.is_some() {
-        let p = yet.next();
-        anyhow::ensure!(p == open, "expect {:?}, but found {:?}", open, p);
-    }
-
     let close = |p| (p as u8 + 1) as char;
-    let result = expression(yet);
+    let p = open.and_then(|_| yet.next());
+
+    let term = if let Some('+' | '-') = yet.peek() {
+        unop(yet.next().expect("peeked '+' or '-'"), term(yet)?)?
+    } else {
+        term(yet)?
+    };
+    let result = if let Some('+' | '-') = yet.peek() {
+        binop(term, yet.next().expect("peeked '+' or '-'"), expression(yet)?)?
+    } else {
+        term
+    };
     match yet.next() {
-        q @ (None | Some(')' | '}' | ']')) if q == open.map(close) => result,
+        q @ (None | Some(')' | '}' | ']')) if p == open && q == open.map(close) => Ok(result),
         c => anyhow::bail!("expect end of parenthetic expression, but found {:?}", c),
     }
 }
 
+/// expression = term  [ ( '+' | '-' ) expression ]
 fn expression<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
     N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
-    let mut result;
-    if let Some('+' | '-') = yet.peek() {
-        result = unop(yet.next().expect("peeked"), term(yet)?);
-    } else {
-        result = term(yet);
+    let term = term(yet)?;
+    match yet.peek() {
+        Some('+' | '-') => binop(term, yet.next().expect("peeked '+' or '-'"), expression(yet)?),
+        _ => Ok(term),
     }
-
-    while let Some('+' | '-') = yet.peek() {
-        result = binop(result?, yet.next().expect("peeked '+' or '-'"), term(yet)?);
-    }
-    result
 }
 
+/// term = factor [ ( '*' | '/' ) term ]
 fn term<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
     N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
-    let mut result = factor(yet);
-    while let Some('*' | '/') = yet.peek() {
-        result = binop(result?, yet.next().expect("peeked '*' or '/'"), factor(yet)?);
+    let factor = factor(yet)?;
+    match yet.peek() {
+        Some('*' | '/') => binop(factor, yet.next().expect("peeked '*' or '/'"), term(yet)?),
+        _ => Ok(factor),
     }
-    result
 }
 
+/// factor = constant | '(' expression ')'
 fn factor<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
     N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
@@ -76,6 +81,8 @@ where
     }
 }
 
+/// constant = digit | [digit] '.' digit
+/// digit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
 fn constant<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
     N: std::str::FromStr,
