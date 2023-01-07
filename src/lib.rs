@@ -213,4 +213,15 @@ mod tests {
     fn test_large3() {
         assert_eq!(calculate::<i128>(&vec!["2/2"; 500000].join("*")).unwrap(), 1);
     }
+
+    #[test]
+    fn test_large4() {
+        assert_eq!(calculate::<i128>(&vec!["1+1"; 500000].join("*")).unwrap(), 500001);
+    }
+
+    #[test]
+    fn test_large5() {
+        let (open, close) = (vec!["("; 1024].join(" "), vec![")"; 1024].join(" "));
+        assert_eq!(calculate::<i128>(&format!("{open}1{close}")).unwrap(), 1);
+    }
 }
