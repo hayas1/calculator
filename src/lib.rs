@@ -197,4 +197,19 @@ mod tests {
             <num::Rational64 as std::str::FromStr>::from_str("5/6").unwrap()
         );
     }
+
+    #[test]
+    fn test_large1() {
+        assert_eq!(calculate::<i128>(&vec!["1"; 1000000].join("+")).unwrap(), 1000000);
+    }
+
+    #[test]
+    fn test_large2() {
+        assert_eq!(calculate::<i128>(&vec!["1-1"; 500000].join("+")).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_large3() {
+        assert_eq!(calculate::<i128>(&vec!["2/2"; 500000].join("*")).unwrap(), 1);
+    }
 }
