@@ -2,6 +2,7 @@ use anyhow::Context as _;
 use itertools::Itertools;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
+/// calculate string expression consisted of only four arithmetic operations.
 pub fn calculate<N>(target: &str) -> anyhow::Result<N>
 where
     N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
