@@ -14,7 +14,7 @@ where
         .with_context(|| anyhow::anyhow!("fail calculate {:?}, remaining {:?}", target, reader.collect::<String>()))
 }
 
-/// expression = [ '+' | '-' ] term [ ( '+' | '-' ) expression ]
+/// expression = [ '+' | '-' ] term [ ( '+' | '-' ) recursive_expression ]
 fn expression<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
     N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
@@ -32,7 +32,7 @@ where
     }
 }
 
-/// recursive_expression = ( '+' | '-' ) term  [ ( '+' | '-' ) expression ]
+/// recursive_expression = ( '+' | '-' ) term  [ ( '+' | '-' ) recursive_expression ]
 fn recursive_expression<N, E>(yet: &mut std::iter::Peekable<E>, val: N) -> anyhow::Result<N>
 where
     N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
@@ -47,7 +47,7 @@ where
     }
 }
 
-/// term = factor [ ( '*' | '/' ) term ]
+/// term = factor [ ( '*' | '/' ) recursive_term ]
 fn term<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
     N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
@@ -61,7 +61,7 @@ where
     }
 }
 
-/// recursive_term = ( '*' | '/' ) factor [ ( '*' | '/' ) term ]
+/// recursive_term = ( '*' | '/' ) factor [ ( '*' | '/' ) recursive_term ]
 fn recursive_term<N, E>(yet: &mut std::iter::Peekable<E>, val: N) -> anyhow::Result<N>
 where
     N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
