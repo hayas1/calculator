@@ -147,6 +147,7 @@ where
     }
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,7 +165,7 @@ mod tests {
         assert!(matches!(calculate::<i64>("(1+2)+3"), Ok(6)));
         assert!(matches!(calculate::<i64>("(1+2))+3"), Err(_)));
         assert!(matches!(calculate::<i64>("(1+2)+3))))"), Err(_)));
-        assert!(matches!(calculate::<i64>("((((1+2))))+(3)"), Ok(6)));
+        assert!(matches!(calculate::<i64>("[{(1+2)}]+(3)"), Ok(6)));
     }
 
     #[test]
@@ -223,5 +224,20 @@ mod tests {
             calculate::<num::Rational64>("2/3 + 1/6").unwrap(),
             <num::Rational64 as std::str::FromStr>::from_str("5/6").unwrap()
         );
+    }
+
+    #[test]
+    fn test_large1() {
+        assert_eq!(calculate::<i128>(&vec!["1"; 1000000].join("+")).unwrap(), 1000000);
+    }
+
+    #[test]
+    fn test_large2() {
+        assert_eq!(calculate::<i128>(&vec!["1-1"; 500000].join("+")).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_large3() {
+        assert_eq!(calculate::<i128>(&vec!["2/2"; 500000].join("*")).unwrap(), 1);
     }
 }
