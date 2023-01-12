@@ -9,62 +9,71 @@ where
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
 {
     let mut reader = target.chars().filter(|c| !c.is_whitespace()).peekable();
-    parenthetic(&mut reader, None)
+    expression(&mut reader)
+        .and_then(|n| reader.peek().map_or(Ok(n), |_| anyhow::bail!("success calculated, but expression is remaining")))
         .with_context(|| anyhow::anyhow!("fail calculate {:?}, remaining {:?}", target, reader.collect::<String>()))
 }
 
-/// parenthetic =  expression ; | '(' expression ')'
-fn parenthetic<N, E>(yet: &mut std::iter::Peekable<E>, open: Option<char>) -> anyhow::Result<N>
-where
-    N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
-    <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
-    E: Iterator<Item = char>,
-{
-    if open.is_some() {
-        let p = yet.next();
-        anyhow::ensure!(p == open, "expect {:?}, but found {:?}", open, p);
-    }
-
-    let close = |p| if p == '(' { p as u8 + 1 } else { p as u8 + 2 } as char;
-    let result = expression(yet);
-    match yet.next() {
-        q @ (None | Some(')' | '}' | ']')) if q == open.map(close) => result,
-        c => anyhow::bail!("expect end of parenthetic expression, but found {:?}", c),
-    }
-}
-
-/// expression = [ '+' | '-' ] term { ( '+' | '-' ) term }
+/// expression = [ '+' | '-' ] term [ ( '+' | '-' ) recursive_expression ]
 fn expression<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
     N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
-    let mut result;
-    if let Some('+' | '-') = yet.peek() {
-        result = unop(yet.next().expect("peeked '+' or '-'"), term(yet)?);
+    let t = if let Some('+' | '-') = yet.peek() {
+        unop(yet.next().expect("peeked '+' or '-'"), term(yet)?)?
     } else {
-        result = term(yet);
+        term(yet)?
+    };
+    match yet.peek() {
+        Some('+' | '-') => recursive_expression(yet, t),
+        _ => Ok(t),
     }
-
-    while let Some('+' | '-') = yet.peek() {
-        result = binop(result?, yet.next().expect("peeked '+' or '-'"), term(yet)?);
-    }
-    result
 }
 
-/// term = factor { ( '*' | '/' ) term }
+/// recursive_expression = ( '+' | '-' ) term  [ ( '+' | '-' ) recursive_expression ]
+fn recursive_expression<N, E>(yet: &mut std::iter::Peekable<E>, val: N) -> anyhow::Result<N>
+where
+    N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
+    <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
+    E: Iterator<Item = char>,
+{
+    let op = yet.next().ok_or_else(|| anyhow::anyhow!("expression must start with '+' or '-'"))?;
+    let val = binop(val, op, term(yet)?)?;
+    match yet.peek() {
+        Some('+' | '-') => recursive_expression(yet, val),
+        _ => Ok(val),
+    }
+}
+
+/// term = factor [ ( '*' | '/' ) recursive_term ]
 fn term<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
 where
     N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
     <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
     E: Iterator<Item = char>,
 {
-    let mut result = factor(yet);
-    while let Some('*' | '/') = yet.peek() {
-        result = binop(result?, yet.next().expect("peeked '*' or '/'"), factor(yet)?);
+    let val = factor(yet)?;
+    match yet.peek() {
+        Some('*' | '/') => recursive_term(yet, val),
+        _ => Ok(val),
     }
-    result
+}
+
+/// recursive_term = ( '*' | '/' ) factor [ ( '*' | '/' ) recursive_term ]
+fn recursive_term<N, E>(yet: &mut std::iter::Peekable<E>, val: N) -> anyhow::Result<N>
+where
+    N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
+    <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
+    E: Iterator<Item = char>,
+{
+    let op = yet.next().ok_or_else(|| anyhow::anyhow!("term must start with '*' or '/'"))?;
+    let val = binop(val, op, factor(yet)?)?;
+    match yet.peek() {
+        Some('*' | '/') => recursive_term(yet, val),
+        _ => Ok(val),
+    }
 }
 
 /// factor = constant | '(' expression ')'
@@ -75,9 +84,26 @@ where
     E: Iterator<Item = char>,
 {
     match yet.peek() {
+        Some('(' | '{' | '[') => parenthetic(yet),
         Some(n) if n == &'.' || n.is_numeric() => constant(yet),
-        Some(&p @ ('(' | '{' | '[')) => parenthetic(yet, Some(p)),
         c => Err(anyhow::anyhow!("expect factor, but found {:?}", c)),
+    }
+}
+
+/// parenthetic = '(' expression ')'
+fn parenthetic<N, E>(yet: &mut std::iter::Peekable<E>) -> anyhow::Result<N>
+where
+    N: std::str::FromStr + Add<Output = N> + Sub<Output = N> + Mul<Output = N> + Div<Output = N> + Neg<Output = N>,
+    <N as std::str::FromStr>::Err: 'static + std::marker::Sync + std::marker::Send + std::error::Error,
+    E: Iterator<Item = char>,
+{
+    let close = |p| if p == '(' { p as u8 + 1 } else { p as u8 + 2 } as char;
+    let p = yet.next().ok_or_else(|| anyhow::anyhow!("parenthetic must start with with '(' or '{{' or '['"))?;
+
+    let val = expression(yet)?;
+    match yet.next() {
+        Some(q @ (')' | '}' | ']')) if q == close(p) => Ok(val),
+        c => anyhow::bail!("expect end of parenthetic, but found {:?}", c),
     }
 }
 
@@ -120,6 +146,7 @@ where
         _ => anyhow::bail!("unimplemented unary operator: {}", op),
     }
 }
+
 
 #[cfg(test)]
 mod tests {
